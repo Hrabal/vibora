@@ -206,3 +206,7 @@ def format_access_log(request, response) -> str:
     return f'{request.client_ip()} - "{request.method.decode()} ' \
            f'{request.parsed_url.path.decode()}" - {response.status_code} - ' \
            f'{request.headers.get("user-agent")}'
+
+
+class _FileSystemSensitive:
+    pass

@@ -8,7 +8,7 @@ from multiprocessing import cpu_count
 from .__version__ import __version__
 from .client import Session
 from .workers.handler import RequestHandler
-from .workers.necromancer import Necromancer
+from .workers.necromancer import Necromancer, Guardian
 from .router import Route
 from .request import Request
 from .responses import Response
@@ -262,7 +262,8 @@ class Vibora(Application):
         self.initialized = True
 
     def run(self, host: str='127.0.0.1', port: int=5000, workers: int=None, debug: bool=True,
-            block: bool=True, necromancer: bool=False, sock=None, startup_message: bool=True):
+            block: bool=True, necromancer: bool=False, sock=None, startup_message: bool=True,
+            reloading: bool=False):
         """
 
         :param startup_message:
@@ -289,6 +290,11 @@ class Vibora(Application):
             necromancer = Necromancer(self.workers, spawn_function=spawn_function,
                                       interval=self.server_limits.worker_timeout)
             necromancer.start()
+
+        if reloading:
+            init_args = (host, port, workers, debug, block, necromancer, sock, startup_message, reloading)
+            guardian = Guardian(self, init_args, interval=self.server_limits.worker_timeout)
+            guardian.start()
 
         # Wait the server start accepting new connections.
         if not sock:
