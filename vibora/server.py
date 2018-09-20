@@ -292,8 +292,7 @@ class Vibora(Application):
             necromancer.start()
 
         if reloading:
-            init_args = (host, port, workers, debug, block, necromancer, sock, startup_message, reloading)
-            guardian = Guardian(reloading)
+            guardian = Guardian(self, reloading)
             guardian.start()
 
         # Wait the server start accepting new connections.

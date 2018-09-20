@@ -2,7 +2,7 @@ import os
 import sys
 import threading
 from imp import reload
-from itertools import zip_longest, chain
+from itertools import chain
 import time
 from typing import Callable
 from ..utils import cprint
@@ -32,34 +32,50 @@ class Necromancer(threading.Thread):
 
 
 class Guardian(threading.Thread):
-    def __init__(self, reloading: list=None, interval: float=0.1):
+    """Thread that watches project files and re-run the active vibora execution."""
+    def __init__(self, app, reloading: list=None, interval: float=0.5):
+        """
+        :: app : a valid Vibora instance
+        :: reloading : list of files to keep an eye on (i.e: a config file)
+        :: interval : cycle interval for file scan, default 0.1s
+        """
         super().__init__()
         self.interval = interval
-        self.custom_files = reloading if isinstance(reloading, list) else []
+        self.app = app
+        self.custom_files = reloading if isinstance(reloading, list) else []  # TODO: make it a list of files or folders
         self.must_work = True
 
     def run(self):
-        mtimes = {}
+        mtimes = {}  # TODO: this can become quite big.. optimization?
         while self.must_work:
+            # Let's not be greedy
             time.sleep(self.interval)
+            # Make an iterable of tuples out of a list
+            custom_files = zip(self.custom_files, (None, ))
+            # Iterate over all the relevant python files and extra given files
             for filename, module in chain(self._modules(),
-                                          zip_longest(self.custom_files,
-                                                      (None, ))):
+                                          custom_files):
                 try:
-                    print
                     if not filename:
-                        raise OSError
+                        # No file name no change
+                        continue
                     mtime = os.stat(filename).st_mtime
                 except OSError:
                     continue
                 old_time = mtimes.get(filename)
                 if old_time is None:
+                    # First time we see the file
                     mtimes[filename] = mtime
                     continue
                 elif mtime != old_time:
+                    # Notify
                     cprint('Restarting server due to changes in %s.' % filename)
+                    # Clean the room
+                    self.app.clean_up()
                     if module and module.__name__ != '__main__':
+                        # Try to reload the module
                         reload(module)
+                    # Sobstitute this execution with a new one
                     os.execv(sys.executable, ['python'] + sys.argv)
 
     def _modules(self):
@@ -67,8 +83,6 @@ class Guardian(threading.Thread):
         loaded files from modules, all files in folders of already loaded modules
         as well as all files reachable through a package.
         """
-        # The list call is necessary on Python 3 in case the module
-        # dictionary modifies during iteration.
         for module in list(sys.modules.values()):
             if module is None:
                 continue
