@@ -1,8 +1,8 @@
 import os
 import sys
 import threading
-from imp import reload_module
-from itertools import zip_longest
+from imp import reload
+from itertools import zip_longest, chain
 import time
 from typing import Callable
 from ..utils import cprint
@@ -32,36 +32,37 @@ class Necromancer(threading.Thread):
 
 
 class Guardian(threading.Thread):
-    def __init__(self, app, init_args: tuple, custom_files: list=None, interval: int=1):
+    def __init__(self, reloading: list=None, interval: float=0.1):
+        super().__init__()
         self.interval = interval
-        self.custom_files = custom_files or []
+        self.custom_files = reloading if isinstance(reloading, list) else []
+        self.must_work = True
 
     def run(self):
         mtimes = {}
-        while 1:
+        while self.must_work:
             time.sleep(self.interval)
             for filename, module in chain(self._modules(),
                                           zip_longest(self.custom_files,
                                                       (None, ))):
                 try:
+                    print
+                    if not filename:
+                        raise OSError
                     mtime = os.stat(filename).st_mtime
                 except OSError:
                     continue
-
                 old_time = mtimes.get(filename)
                 if old_time is None:
                     mtimes[filename] = mtime
                     continue
-                elif mtime > old_time:
+                elif mtime != old_time:
                     cprint('Restarting server due to changes in %s.' % filename)
-                    if  module:
-                        reload_module(module)
-                    # Tear down everything...
-                    self.app.clean_up()
-                    # ..and recreate.
-                    self.app = self.app.__class__(*init_args)
+                    if module and module.__name__ != '__main__':
+                        reload(module)
+                    os.execv(sys.executable, ['python'] + sys.argv)
 
-    def _iter_module_files(self):
+    def _modules(self):
         """This iterates over all relevant Python files.  It goes through all
         loaded files from modules, all files in folders of already loaded modules
         as well as all files reachable through a package.

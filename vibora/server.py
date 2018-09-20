@@ -293,7 +293,7 @@ class Vibora(Application):
 
         if reloading:
             init_args = (host, port, workers, debug, block, necromancer, sock, startup_message, reloading)
-            guardian = Guardian(self, init_args, interval=self.server_limits.worker_timeout)
+            guardian = Guardian(reloading)
             guardian.start()
 
         # Wait the server start accepting new connections.
